@@ -1,9 +1,32 @@
-module.exports = {
+const txNodeColor = 0x1D84B5;
+const inputNodeColor = 0x41D3BD;
+const outputNodeColor = 0xE8E288;
+const mixedNodeColor = 0xA14EBF;
+const unknownNodeColor = 0xff0000;
 
-  WebglCircle(size, color) {
-    this.size = size;
-    this.color = color;
+
+module.exports = {
+  getTxNodeColor() {
+    return txNodeColor;
   },
+
+  getInputNodeColor() {
+    return inputNodeColor;
+  },
+
+  getOutputNodeColor() {
+    return outputNodeColor;
+  },
+
+  getMixedNodeColor() {
+    return mixedNodeColor;
+  },
+
+  getUnknownNodeColor() {
+    return unknownNodeColor;
+  },
+
+
   // Next comes the hard part - implementation of API for custom shader
   // program, used by webgl renderer:
   buildCircleNodeShader() {

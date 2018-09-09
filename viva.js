@@ -3,7 +3,6 @@ const webglUtils = require('./webgl-utils');
 
 const graph = Viva.Graph.graph();
 
-
 const layout = Viva.Graph.Layout.forceDirected(graph, {
   springLength: 30,
   springCoeff: 0.0002,
@@ -17,11 +16,23 @@ function WebglCircle(size, color) {
   this.color = color;
 }
 
-console.log(new WebglCircle(1, 1));
+function getNodeColor(node) {
+  const colorMap = {
+    0: () => webglUtils.getTxNodeColor(),
+    1: () => webglUtils.getInputNodeColor(),
+    2: () => webglUtils.getOutputNodeColor(),
+    3: () => webglUtils.getMixedNodeColor(),
+  };
+
+  if (node.data && colorMap[node.data.type]) {
+    return colorMap[node.data.type]();
+  } return webglUtils.getTxNodeColor();
+}
+
 const graphics = Viva.Graph.View.webglGraphics();
 const circleNode = webglUtils.buildCircleNodeShader();
 graphics.setNodeProgram(circleNode);
-graphics.node(node => new WebglCircle(12, 0x009ee8));
+graphics.node((node => new WebglCircle(12, getNodeColor(node))));
 
 const renderer = Viva.Graph.View.renderer(
   graph,

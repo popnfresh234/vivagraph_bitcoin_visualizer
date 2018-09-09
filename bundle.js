@@ -3,21 +3,22 @@
 const txLimit = 1500;
 
 function createNodes(link, graph, renderer, layout) {
-  console.log(graph.getNode[0]);
   if (link.type === 1) {
     const node = graph.getNode(link.source);
     if (!node) {
       graph.addNode(link.source, { type: link.type });
-    } else if (node.type === 2) {
-      node.type = 3;
+    } else if (node.data.type === 2) {
+      node.data.type = 3;
+      console.log(node);
       renderer.rerender();
     }
   } else if (link.type === 2) {
     const outNode = graph.getNode(link.target);
     if (!outNode) {
       graph.addNode(link.target, { type: link.type });
-    } else if (outNode.type === 1) {
-      outNode.type = 3;
+    } else if (outNode.data.type === 1) {
+      outNode.data.type = 3;
+      console.log(outNode);
       renderer.rerender();
     }
   }
@@ -74,7 +75,6 @@ const webglUtils = require('./webgl-utils');
 
 const graph = Viva.Graph.graph();
 
-
 const layout = Viva.Graph.Layout.forceDirected(graph, {
   springLength: 30,
   springCoeff: 0.0002,
@@ -88,11 +88,23 @@ function WebglCircle(size, color) {
   this.color = color;
 }
 
-console.log(new WebglCircle(1, 1));
+function getNodeColor(node) {
+  const colorMap = {
+    0: () => webglUtils.getTxNodeColor(),
+    1: () => webglUtils.getInputNodeColor(),
+    2: () => webglUtils.getOutputNodeColor(),
+    3: () => webglUtils.getMixedNodeColor(),
+  };
+
+  if (node.data && colorMap[node.data.type]) {
+    return colorMap[node.data.type]();
+  } return webglUtils.getTxNodeColor();
+}
+
 const graphics = Viva.Graph.View.webglGraphics();
 const circleNode = webglUtils.buildCircleNodeShader();
 graphics.setNodeProgram(circleNode);
-graphics.node(node => new WebglCircle(12, 0x009ee8));
+graphics.node((node => new WebglCircle(12, getNodeColor(node))));
 
 const renderer = Viva.Graph.View.renderer(
   graph,
@@ -111,12 +123,35 @@ renderer.run();
 SocketUtils.startSocket(graph, renderer, layout);
 
 },{"./socketUtils":1,"./webgl-utils":3}],3:[function(require,module,exports){
-module.exports = {
+const txNodeColor = 0x1D84B5;
+const inputNodeColor = 0x41D3BD;
+const outputNodeColor = 0xE8E288;
+const mixedNodeColor = 0xA14EBF;
+const unknownNodeColor = 0xff0000;
 
-  WebglCircle(size, color) {
-    this.size = size;
-    this.color = color;
+
+module.exports = {
+  getTxNodeColor() {
+    return txNodeColor;
   },
+
+  getInputNodeColor() {
+    return inputNodeColor;
+  },
+
+  getOutputNodeColor() {
+    return outputNodeColor;
+  },
+
+  getMixedNodeColor() {
+    return mixedNodeColor;
+  },
+
+  getUnknownNodeColor() {
+    return unknownNodeColor;
+  },
+
+
   // Next comes the hard part - implementation of API for custom shader
   // program, used by webgl renderer:
   buildCircleNodeShader() {

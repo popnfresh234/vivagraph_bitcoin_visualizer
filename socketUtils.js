@@ -2,21 +2,22 @@
 const txLimit = 1500;
 
 function createNodes(link, graph, renderer, layout) {
-  console.log(graph.getNode[0]);
   if (link.type === 1) {
     const node = graph.getNode(link.source);
     if (!node) {
       graph.addNode(link.source, { type: link.type });
-    } else if (node.type === 2) {
-      node.type = 3;
+    } else if (node.data.type === 2) {
+      node.data.type = 3;
+      console.log(node);
       renderer.rerender();
     }
   } else if (link.type === 2) {
     const outNode = graph.getNode(link.target);
     if (!outNode) {
       graph.addNode(link.target, { type: link.type });
-    } else if (outNode.type === 1) {
-      outNode.type = 3;
+    } else if (outNode.data.type === 1) {
+      outNode.data.type = 3;
+      console.log(outNode);
       renderer.rerender();
     }
   }
