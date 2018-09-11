@@ -47,17 +47,12 @@ module.exports = {
       socket.send(JSON.stringify({ op: 'unconfirmed_sub' }));
     });
 
-    socket.addEventListener('error', (err) => {
-      console.log('error');
-      console.log(err);
-    });
-
     socket.onmessage = (event) => {
       const tx = JSON.parse(event.data);
       if (tx.op === 'utx') {
         const { inputs, out, hash } = tx.x;
         const links = [];
-        graph.addNode(hash, { type: 1, note: 'TRANSACTIOn' });
+        graph.addNode(hash, { type: 1 });
         for (let i = 0; i < inputs.length; i++) {
           const input = inputs[i];
           if (input.prev_out.addr) {
