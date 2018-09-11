@@ -4,7 +4,7 @@ const webglUtils = require('./webgl-utils');
 
 const graph = Viva.Graph.graph();
 const scaleCoefficient = 4;
-
+const INITIAL_ZOOM = 0.04;
 const forceConfig = {
   springLength: 80 * scaleCoefficient,
   springCoeff: 0.0002,
@@ -63,11 +63,9 @@ events.mouseEnter((node) => {
 
 
 renderer.run();
-// graphics.scale(0.15, { x: window.innderWidth / 2, y: window.innerHeight / 2 });
-const graphRect = layout.getGraphRect();
-const graphSize = Math.min(graphRect.x2 - graphRect.x1, graphRect.y2 - graphRect.y1);
-const screenSize = Math.min(document.body.clientWidth, document.body.clientHeight);
-const desiredScale = screenSize / graphSize;
+while (renderer.getTransform().scale > INITIAL_ZOOM) {
+  renderer.zoomOut();
+}
 
 SocketUtils.startSocket(graph, renderer, graphics, layout);
 
@@ -75,9 +73,6 @@ SocketUtils.startSocket(graph, renderer, graphics, layout);
 
 const pinId = 'pinNode';
 const webglUtils = require('./webgl-utils');
-
-const initalZoom = 0.04;
-
 
 function createNodes(link, graph, renderer, graphics) {
   let node = null;
@@ -124,10 +119,6 @@ module.exports = {
     });
 
     socket.onmessage = (event) => {
-      console.log(renderer.getTransform());
-      while (renderer.getTransform().scale > initalZoom) {
-        renderer.zoomOut();
-      }
       const tx = JSON.parse(event.data);
       if (tx.op === 'utx') {
         const { inputs, out, hash } = tx.x;
