@@ -1,85 +1,14 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-
-const txLimit = 1500;
-
-function createNodes(link, graph, renderer, layout) {
-  if (link.type === 1) {
-    const node = graph.getNode(link.source);
-    if (!node) {
-      graph.addNode(link.source, { type: link.type });
-    } else if (node.data.type === 2) {
-      node.data.type = 3;
-      console.log(node);
-      renderer.rerender();
-    }
-  } else if (link.type === 2) {
-    const outNode = graph.getNode(link.target);
-    if (!outNode) {
-      graph.addNode(link.target, { type: link.type });
-    } else if (outNode.data.type === 1) {
-      outNode.data.type = 3;
-      console.log(outNode);
-      renderer.rerender();
-    }
-  }
-}
-
-module.exports = {
-  startSocket(graph, renderer, layout) {
-    const socket = new WebSocket('wss://ws.blockchain.info/inv');
-    socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({ op: 'unconfirmed_sub' }));
-    });
-
-    socket.onmessage = (event) => {
-      const tx = JSON.parse(event.data);
-      if (tx.op === 'utx') {
-        const { inputs, out, hash } = tx.x;
-        const links = [];
-
-        for (let i = 0; i < inputs.length; i++) {
-          const input = inputs[i];
-          if (input.prev_out.addr) {
-            links.push({
-              source: input.prev_out.addr,
-              target: hash,
-              type: 1,
-            });
-          }
-        }
-
-        for (let j = 0; j < out.length; j++) {
-          const output = out[j];
-          if (output.addr) {
-            links.push({
-              source: hash,
-              target: output.addr,
-              type: 2,
-            });
-          }
-        }
-
-        for (let k = 0; k < links.length; k++) {
-          const link = links[k];
-          createNodes(link, graph, renderer, layout);
-          graph.addLink(link.source, link.target);
-        }
-      }
-    };
-  },
-};
-
-},{}],2:[function(require,module,exports){
 const SocketUtils = require('./socketUtils');
 const webglUtils = require('./webgl-utils');
 
 const graph = Viva.Graph.graph();
 
 const layout = Viva.Graph.Layout.forceDirected(graph, {
-  springLength: 30,
+  springLength: 80,
   springCoeff: 0.0002,
   dragCoeff: 0.009,
-  gravity: -0.1,
+  gravity: -30,
   theta: 0.7,
 });
 
@@ -90,21 +19,20 @@ function WebglCircle(size, color) {
 
 function getNodeColor(node) {
   const colorMap = {
-    0: () => webglUtils.getTxNodeColor(),
-    1: () => webglUtils.getInputNodeColor(),
-    2: () => webglUtils.getOutputNodeColor(),
-    3: () => webglUtils.getMixedNodeColor(),
+    1: () => webglUtils.getTxNodeColor(),
+    2: () => webglUtils.getInputNodeColor(),
+    3: () => webglUtils.getOutputNodeColor(),
+    4: () => webglUtils.getMixedNodeColor(),
   };
-
   if (node.data && colorMap[node.data.type]) {
     return colorMap[node.data.type]();
-  } return webglUtils.getTxNodeColor();
+  } return webglUtils.getUnknownNodeColor();
 }
 
 const graphics = Viva.Graph.View.webglGraphics();
 const circleNode = webglUtils.buildCircleNodeShader();
 graphics.setNodeProgram(circleNode);
-graphics.node((node => new WebglCircle(12, getNodeColor(node))));
+graphics.node((node => new WebglCircle(50, getNodeColor(node))));
 
 const renderer = Viva.Graph.View.renderer(
   graph,
@@ -116,13 +44,112 @@ const renderer = Viva.Graph.View.renderer(
   },
 );
 
+const events = Viva.Graph.webglInputEvents(graphics, graph);
+events.mouseEnter((node) => {
+  console.log(node);
+});
+
 
 renderer.run();
 
 
-SocketUtils.startSocket(graph, renderer, layout);
+SocketUtils.startSocket(graph, renderer, graphics);
 
-},{"./socketUtils":1,"./webgl-utils":3}],3:[function(require,module,exports){
+},{"./socketUtils":2,"./webgl-utils":3}],2:[function(require,module,exports){
+
+const txLimit = 1500;
+const webglUtils = require('./webgl-utils');
+
+
+function createNodes(link, graph, renderer, graphics) {
+  let node = null;
+  if (link.type === 2) {
+    graph.forEachNode((existingNode) => {
+      if (existingNode.data.hash !== link.hash && existingNode.id.substring(0, existingNode.id.indexOf('transaction')) === link.source.substring(0, link.source.indexOf('transaction'))) {
+        node = existingNode;
+        const nodeUI = graphics.getNodeUI(existingNode.id);
+        nodeUI.color = webglUtils.getMixedNodeColor();
+        renderer.rerender();
+      }
+    });
+    if (!node) {
+      graph.addNode(link.source, { type: 2, hash: link.hash });
+      graph.addLink(link.hash, link.source);
+    } else {
+      graph.addLink(node.id, link.target);
+    }
+  } else if (link.type === 3) {
+    graph.forEachNode((existingNode) => {
+      if (existingNode.data.hash !== link.hash && existingNode.id.substring(0, existingNode.id.indexOf('transaction')) === link.target.substring(0, link.target.indexOf('transaction'))) {
+        node = existingNode;
+        const nodeUI = graphics.getNodeUI(existingNode.id);
+        nodeUI.color = webglUtils.getMixedNodeColor();
+        renderer.rerender();
+      }
+    });
+    if (!node) {
+      graph.addNode(link.target, { type: 3, hash: link.hash });
+      graph.addLink(link.target, link.hash);
+    } else {
+      graph.addLink(node.id, link.source);
+    }
+  }
+}
+
+
+module.exports = {
+  startSocket(graph, renderer, graphics) {
+    console.log('start');
+    const socket = new WebSocket('wss://ws.blockchain.info/inv');
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ op: 'unconfirmed_sub' }));
+    });
+
+    socket.addEventListener('error', (err) => {
+      console.log('error');
+      console.log(err);
+    });
+
+    socket.onmessage = (event) => {
+      const tx = JSON.parse(event.data);
+      if (tx.op === 'utx') {
+        const { inputs, out, hash } = tx.x;
+        const links = [];
+        graph.addNode(hash, { type: 1, note: 'TRANSACTIOn' });
+        for (let i = 0; i < inputs.length; i++) {
+          const input = inputs[i];
+          if (input.prev_out.addr) {
+            links.push({
+              source: `${input.prev_out.addr}transactioninput${hash}${i}`,
+              target: hash,
+              hash,
+              type: 2,
+            });
+          }
+        }
+
+        for (let j = 0; j < out.length; j++) {
+          const output = out[j];
+          if (output.addr) {
+            links.push({
+              source: hash,
+              target: `${output.addr}transactionoutput${hash}${j}`,
+              hash,
+              type: 3,
+            });
+          }
+        }
+
+        for (let k = 0; k < links.length; k++) {
+          const link = links[k];
+          createNodes(link, graph, renderer, graphics);
+        }
+      }
+    };
+  },
+};
+
+},{"./webgl-utils":3}],3:[function(require,module,exports){
 const txNodeColor = 0x1D84B5;
 const inputNodeColor = 0x41D3BD;
 const outputNodeColor = 0xE8E288;
@@ -286,4 +313,4 @@ module.exports = {
 
 };
 
-},{}]},{},[2]);
+},{}]},{},[1]);
