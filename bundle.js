@@ -3,14 +3,17 @@ const SocketUtils = require('./socketUtils');
 const webglUtils = require('./webgl-utils');
 
 const graph = Viva.Graph.graph();
+const scaleCoefficient = 4;
 
-const layout = Viva.Graph.Layout.forceDirected(graph, {
-  springLength: 80,
+const forceConfig = {
+  springLength: 80 * scaleCoefficient,
   springCoeff: 0.0002,
   dragCoeff: 0.009,
-  gravity: -30,
+  gravity: -30 * scaleCoefficient,
   theta: 0.7,
-});
+};
+
+const layout = Viva.Graph.Layout.forceDirected(graph, forceConfig);
 
 function WebglCircle(size, color) {
   this.size = size;
@@ -28,11 +31,20 @@ function getNodeColor(node) {
     return colorMap[node.data.type]();
   } return webglUtils.getUnknownNodeColor();
 }
-
-const graphics = Viva.Graph.View.webglGraphics();
+const graphicsOptions = {
+  clearColor: true,
+  clearColorValue: {
+    r: 0.0078,
+    g: 0,
+    b: 0.2471,
+    a: 1,
+  },
+};
+const graphics = Viva.Graph.View.webglGraphics(graphicsOptions);
 const circleNode = webglUtils.buildCircleNodeShader();
 graphics.setNodeProgram(circleNode);
-graphics.node((node => new WebglCircle(50, getNodeColor(node))));
+graphics.node((node => new WebglCircle(50 * scaleCoefficient, getNodeColor(node))));
+graphics.link(link => Viva.Graph.View.webglLine(webglUtils.getLinkColor()));
 
 const renderer = Viva.Graph.View.renderer(
   graph,
@@ -51,14 +63,20 @@ events.mouseEnter((node) => {
 
 
 renderer.run();
+// graphics.scale(0.15, { x: window.innderWidth / 2, y: window.innerHeight / 2 });
+const graphRect = layout.getGraphRect();
+const graphSize = Math.min(graphRect.x2 - graphRect.x1, graphRect.y2 - graphRect.y1);
+const screenSize = Math.min(document.body.clientWidth, document.body.clientHeight);
+const desiredScale = screenSize / graphSize;
 
-
-SocketUtils.startSocket(graph, renderer, graphics);
+SocketUtils.startSocket(graph, renderer, graphics, layout);
 
 },{"./socketUtils":2,"./webgl-utils":3}],2:[function(require,module,exports){
 
-const txLimit = 1500;
+const pinId = 'pinNode';
 const webglUtils = require('./webgl-utils');
+
+const initalZoom = 0.04;
 
 
 function createNodes(link, graph, renderer, graphics) {
@@ -98,24 +116,23 @@ function createNodes(link, graph, renderer, graphics) {
 
 
 module.exports = {
-  startSocket(graph, renderer, graphics) {
+  startSocket(graph, renderer, graphics, layout) {
     console.log('start');
     const socket = new WebSocket('wss://ws.blockchain.info/inv');
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({ op: 'unconfirmed_sub' }));
     });
 
-    socket.addEventListener('error', (err) => {
-      console.log('error');
-      console.log(err);
-    });
-
     socket.onmessage = (event) => {
+      console.log(renderer.getTransform());
+      while (renderer.getTransform().scale > initalZoom) {
+        renderer.zoomOut();
+      }
       const tx = JSON.parse(event.data);
       if (tx.op === 'utx') {
         const { inputs, out, hash } = tx.x;
         const links = [];
-        graph.addNode(hash, { type: 1, note: 'TRANSACTIOn' });
+        graph.addNode(hash, { type: 1 });
         for (let i = 0; i < inputs.length; i++) {
           const input = inputs[i];
           if (input.prev_out.addr) {
@@ -155,6 +172,8 @@ const inputNodeColor = 0x41D3BD;
 const outputNodeColor = 0xE8E288;
 const mixedNodeColor = 0xA14EBF;
 const unknownNodeColor = 0xff0000;
+const linkColor = '#5b5b5b';
+const bgColor = '#02003f';
 
 
 module.exports = {
@@ -178,6 +197,13 @@ module.exports = {
     return unknownNodeColor;
   },
 
+  getLinkColor() {
+    return linkColor;
+  },
+
+  getBgColor() {
+    return bgColor;
+  },
 
   // Next comes the hard part - implementation of API for custom shader
   // program, used by webgl renderer:

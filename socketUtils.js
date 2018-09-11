@@ -1,7 +1,6 @@
 
-const txLimit = 1500;
+const pinId = 'pinNode';
 const webglUtils = require('./webgl-utils');
-
 
 function createNodes(link, graph, renderer, graphics) {
   let node = null;
@@ -40,7 +39,7 @@ function createNodes(link, graph, renderer, graphics) {
 
 
 module.exports = {
-  startSocket(graph, renderer, graphics) {
+  startSocket(graph, renderer, graphics, layout) {
     console.log('start');
     const socket = new WebSocket('wss://ws.blockchain.info/inv');
     socket.addEventListener('open', () => {

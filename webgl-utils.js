@@ -3,6 +3,8 @@ const inputNodeColor = 0x41D3BD;
 const outputNodeColor = 0xE8E288;
 const mixedNodeColor = 0xA14EBF;
 const unknownNodeColor = 0xff0000;
+const linkColor = '#5b5b5b';
+const bgColor = '#02003f';
 
 
 module.exports = {
@@ -26,6 +28,13 @@ module.exports = {
     return unknownNodeColor;
   },
 
+  getLinkColor() {
+    return linkColor;
+  },
+
+  getBgColor() {
+    return bgColor;
+  },
 
   // Next comes the hard part - implementation of API for custom shader
   // program, used by webgl renderer:
